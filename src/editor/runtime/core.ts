@@ -570,6 +570,20 @@ export function shuffledSliceOrder(rng: Rng, count: number, sliceCount: number):
   return out.slice(0, count);
 }
 
+export function shuffledSliceOrderWithLocks(
+  rng: Rng,
+  current: PatternValue[],
+  lockedSteps: boolean[],
+  count: number,
+  sliceCount: number,
+): PatternValue[] {
+  const out = shuffledSliceOrder(rng, count, sliceCount);
+  for (let i = 0; i < count; i++) {
+    if (lockedSteps[i] === true && current[i] !== undefined) out[i] = current[i]!;
+  }
+  return out;
+}
+
 // filterValues replaces the former read of state.sequences.filter.
 export function isFilterEnvActiveAtStep(filterValues: PatternValue[], step: number): boolean {
   const value = filterValues && filterValues.length ? filterValues[step % filterValues.length] : 0;

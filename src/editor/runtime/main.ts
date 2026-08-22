@@ -51,6 +51,7 @@ import {
   pitchShiftDurationLocked,
   resizePatternValuesForSliceCount,
   sanitizeRandomSettings,
+  shuffledSliceOrderWithLocks,
   validatePatternForEffect,
   validFilterEnvDirection,
   validFilterType,
@@ -139,6 +140,7 @@ let state = {
   randomSettings: {} as Record<string, RandomSettings>,
 };
 let randomizeAllLocks: Record<string, boolean> = {};
+let sliceOrderStepLocks: boolean[] = new Array(MAX_SLICES).fill(false);
 let snapshots: Array<EditorSnapshotState | null> = new Array(SNAPSHOT_SLOTS).fill(null);
 let selectedSnapshotIndex = 0;
 let queuedSnapshots: number[] = [];
@@ -218,16 +220,56 @@ function formatPatternChipValue(key: LaneKey, value: PatternValue): string {
   return String(value);
 }
 
+function sliceInstrumentMeta(value: PatternValue): { label: string; className: string } | null {
+  const slice = Number(value);
+  if (slice === 1) return { label: "KICK", className: "slice-kick" };
+  if (slice === 3) return { label: "SNARE", className: "slice-snare" };
+  if (slice === 5) return { label: "CLOSED HAT", className: "slice-closed-hat" };
+  if (slice === 6) return { label: "SHAKER", className: "slice-shaker" };
+  if (slice === 7) return { label: "PERCUSSION", className: "slice-percussion" };
+  return null;
+}
+
 function renderPatternChips(key: LaneKey): void {
   const chips = patternChipsForKey(key);
   if (!chips) return;
   const validation = validatePatternInput(key);
   chips.innerHTML = "";
+  chips.classList.toggle("slice-order-chip-list", key === "order");
   if (!validation.valid) return;
-  validation.values.forEach(function (value) {
+  validation.values.forEach(function (value, index) {
     const chip = document.createElement("span");
     chip.className = "pattern-chip";
-    chip.textContent = formatPatternChipValue(key, value);
+    if (key === "order") {
+      chip.classList.add("slice-order-chip");
+      const meta = sliceInstrumentMeta(value);
+      if (meta) chip.classList.add(meta.className);
+      const number = document.createElement("span");
+      number.className = "slice-order-number";
+      number.textContent = String(value);
+      chip.appendChild(number);
+      if (meta) {
+        const name = document.createElement("span");
+        name.className = "slice-order-name";
+        name.textContent = meta.label;
+        chip.appendChild(name);
+      }
+      const lock = document.createElement("button");
+      lock.type = "button";
+      lock.className = "slice-step-lock" + (sliceOrderStepLocks[index] ? " active" : "");
+      lock.textContent = sliceOrderStepLocks[index] ? "🔒" : "·";
+      lock.title = (sliceOrderStepLocks[index] ? "Unlock" : "Lock") + " step " + (index + 1);
+      lock.setAttribute("aria-label", lock.title);
+      lock.onclick = function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        sliceOrderStepLocks[index] = !sliceOrderStepLocks[index];
+        renderPatternChips("order");
+      };
+      chip.appendChild(lock);
+    } else {
+      chip.textContent = formatPatternChipValue(key, value);
+    }
     chips.appendChild(chip);
   });
   chips.title = validation.normalizedText;
@@ -434,7 +476,9 @@ function randomPattern(key: LaneKey): void {
   const rng = createRng(Date.now() ^ hashString(key + patternToTextForEffect(key, state.sequences[key] ?? [])));
   const count = Math.max(1, slices.length);
   const settings = getRandomSettings(key);
-  const out = buildRandomLanePattern(key, rng, count, settings, currentFilterSequence());
+  const out = key === "order"
+    ? shuffledSliceOrderWithLocks(rng, safePatternValues("order"), sliceOrderStepLocks, count, count)
+    : buildRandomLanePattern(key, rng, count, settings, currentFilterSequence());
   applyRandomPatternValues(key, out);
   if (key === "filter") syncRandomFilterEnvDirAfterFilter(rng, count);
 }
