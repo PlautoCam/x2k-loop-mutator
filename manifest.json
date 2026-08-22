@@ -1,0 +1,7 @@
+{
+  "name": "x2k Loop Mutator",
+  "author": "x2k",
+  "entry": "dist/extension.js",
+  "version": "2.0.0",
+  "minimumApiVersion": "1.0.0"
+}

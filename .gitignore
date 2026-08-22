@@ -1,0 +1,13 @@
+.DS_Store
+node_modules/
+dist/
+extensions-sdk-*/
+vendor/
+*.log
+*.ablx
+*.tsbuildinfo
+release/
+src/**/*.test.ts
+
+.env
+.storage/
